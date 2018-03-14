@@ -2,20 +2,41 @@ const express = require('express');
 const ejs = require('ejs');
 const paypal = require('paypal-rest-sdk');
 const config = require('./config.js');
+const bodyParser = require('body-parser');
+
+
+const client_id = config.client_id;
+const secret = config.client_secret;
+
+
 
 paypal.configure({
   'mode': 'sandbox',   //sandbox or live
-  'client_id': config.client_id,
-  'client_secret': config.secret
+  'client_id': client_id,
+  'client_secret': secret
 });
 
 const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.set('view engine', 'ejs');
 
 app.get('/', (req, res) => res.render('index'));
 
+// app.get('/item', function (req, res) {
+//   res.render('item', { item: req.body.item});
+// });
+
 app.post('/pay', (req, res) => {
+  const data = req.body;
+
+  console.log("request.body", data);
+  console.log("data.price", data.price);
+  console.log("data.item", data.item);
+  console.log("data.qty", data.qty);
+  const quantity = parseInt(data.qty);
+  console.log("quantity ", quantity);
+
   const create_payment_json = {
     "intent": "sale",
     "payer": {
@@ -28,18 +49,18 @@ app.post('/pay', (req, res) => {
     "transactions": [{
         "item_list": {
             "items": [{
-                "name": "item",
+                "name": data.item,
                 "sku": "sku",
-                "price": "25.00",
+                "price": data.price,
                 "currency": "USD",
-                "quantity": 1
+                "quantity": data.qty
             }]
         },
         "amount": {
             "currency": "USD",
-            "total": "25.00"
+            "total": data.price
         },
-        "description": "This is the payment description."
+        "description": data.description
     }]
 };
 
