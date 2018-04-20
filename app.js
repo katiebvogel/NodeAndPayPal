@@ -23,9 +23,6 @@ app.set('view engine', 'ejs');
 
 app.get('/', (req, res) => res.render('index'));
 
-// app.get('/item', function (req, res) {
-//   res.render('item', { item: req.body.item});
-// });
 
 app.post('/pay', (req, res) => {
   const data = req.body;
@@ -34,8 +31,8 @@ app.post('/pay', (req, res) => {
   console.log("data.price", data.price);
   console.log("data.item", data.item);
   console.log("data.qty", data.qty);
-  const quantity = parseInt(data.qty);
-  console.log("quantity ", quantity);
+  const myTotal = data.price * data.qty;
+  console.log("my total: ", myTotal);
 
   const create_payment_json = {
     "intent": "sale",
@@ -58,7 +55,7 @@ app.post('/pay', (req, res) => {
         },
         "amount": {
             "currency": "USD",
-            "total": data.price
+            "total": myTotal
         },
         "description": data.description
     }]
@@ -72,45 +69,80 @@ app.post('/pay', (req, res) => {
       } else {
           console.log("Create Payment Response");
           console.log(payment);
+          console.log("payment.transactions.amount: ", payment.transactions[0].amount.total);
+          const paymentCreateAmount = payment.transactions[0].amount.total;
           for (let i = 0; i < payment.links.length; i++) {
             if(payment.links[i].rel === 'approval_url') {
+              console.log("approval url: ", payment.links[i]);
               res.redirect(payment.links[i].href);
+
+
+              app.get('/success/', (req, res) => {
+                const payerId = req.query.PayerID;  //from success URL from PayPal
+                const paymentId = req.query.paymentId; //from success URL from PAYPAL
+                const myPaymentAmount = payment.transactions[0];
+                console.log("here is the request body for execute payment: ", req.query);
+                console.log("here is the app.get paymentCreateAmount: ", payment);
+                const execute_payment_json = {
+                    "payer_id": payerId,
+                    "transactions": [{
+                        "amount": {
+                            "currency": "USD",
+                            "total": myPaymentAmount.amount.total
+                        }
+                    }]
+                };
+
+                paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
+                    if (error) {
+                        console.log(error.response);
+                        throw error;
+                    } else {
+                        console.log("Get Payment Response");
+                        console.log(JSON.stringify(payment));
+                        res.render('/success');
+                    }
+                });
+              });
             }
           }
       }
   });
 
+
 });  //end pay route
 
 // route for success below
 
-app.get('/success', (req, res) => {
-  const payerId = req.query.PayerID;  //from success URL from PayPal
-  const paymentId = req.query.paymentId; //from success URL from PAYPAL
-
-
-  const execute_payment_json = {
-      "payer_id": payerId,
-      "transactions": [{
-          "amount": {
-              "currency": "USD",
-              "total": "25.00"
-          }
-      }]
-  };
-
-  paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
-      if (error) {
-          console.log(error.response);
-          throw error;
-      } else {
-          console.log("Get Payment Response");
-          console.log(JSON.stringify(payment));
-          res.send("Success");
-      }
-  });
-
-});
+// app.get('/success/', (req, res) => {
+//   // getData();
+//   const payerId = req.query.PayerID;  //from success URL from PayPal
+//   const paymentId = req.query.paymentId; //from success URL from PAYPAL
+//   // const myPaymentAmount = payment;
+//   console.log("here is the request body for execute payment: ", req.query);
+//   // console.log("here is the app.get paymentCreateAmount: ", payment);
+//   const execute_payment_json = {
+//       "payer_id": payerId,
+//       "transactions": [{
+//           "amount": {
+//               "currency": "USD",
+//               "total": "15.00"
+//           }
+//       }]
+//   };
+//
+//   paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
+//       if (error) {
+//           console.log(error.response);
+//           throw error;
+//       } else {
+//           console.log("Get Payment Response");
+//           console.log(JSON.stringify(payment));
+//           res.send("Success");
+//       }
+//   });
+//
+// });
 
 
 app.get('/cancel', (req, res) => res.send('Cancelled'));
